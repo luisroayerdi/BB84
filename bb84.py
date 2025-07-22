@@ -50,7 +50,10 @@ print(Eve_indexes)
 
 percentage_intercepted = len(Eve_indexes)/len(bits)
 
+#change percentage intercepted
 print(percentage_intercepted)
+
+
 
 
 
