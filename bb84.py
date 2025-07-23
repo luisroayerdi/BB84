@@ -1,5 +1,5 @@
 """
-Create the BB84 protocol with and without Eve
+BB84 protocol with Eveasdropping
 
 Additional statistical features: 
 
@@ -15,43 +15,100 @@ You	    | Count mismatches between Alice and Bob when their bases match
 
 
 """
-
 import numpy as np
-from numpy import random
 
-n = 10
+# ========== PARAMETERS ==========
+N_QUBITS = 10  # total qubits sent by Alice
+INTERCEPT_RATE = 0.7  # percentage of qubits Eve intercepts (0 to 1)
 
-#original string of information
-bits = np.random.randint(0, 2, size= n)
-
-
-#Alice basis (0 for orthogonal basis 1 for diagonal basis)
-Alice_basis = np.random.randint(0, 2, size= n)
-
-#Bob basis (0 for orthogonal basis 1 for diagonal basis)
-Bob_basis = np.random.randint(0, 2, size= n)
+# ========== FUNCTION DEFINITIONS ==========
 
 
+def generate_bits(n):
+    '''Generate a random bit string of 0s and 1s'''
+    return np.random.randint(0, 2, size= n)
 
-# eve interception random percentage
+def generate_bases(n):
+    """Generate a random basis: 0 (Z/rectilinear), 1 (X/diagonal)"""
+    return np.random.randint(0, 2, size= n)
 
-evesdropping = []
+def choose_eve_intercepts(n, intercept_rate):
+    """Randomly choose which qubits Eve intercepts based on a percentage"""
+    n_intercepts = int(intercept_rate * n)
+    return np.sort(np.random.choice(n, size=n_intercepts, replace=False))
 
-for i in range(n):
-    x = np.random.randint(2)
-    if x == 1:
-        print(x)
-        evesdropping.append(i)
+def measure_qubits(bit_string, sender_basis, reciever_basis, range_intercepted):
+    """Logic to measure qubits and deal with different basis"""
+    reciever_bits = bit_string.copy()
+    for i in range_intercepted:
+        if sender_basis[i] == reciever_basis[i]:
+            reciever_bits[i] = bit_string[i]
+        else:
+            reciever_bits[i] = np.random.randint(0,2)
+    return reciever_bits
 
-Eve_indexes = np.array(evesdropping)
+def basis_reconciliation(alice_basis, bob_basis, bits, bob_bits):
+    accurate_bits = 0
+    compared_bits = 0
+    for i in range(len(bits)):
+        if alice_basis[i] == bob_basis[i]:
+            compared_bits += 1
+            if bits[i] == bob_bits[i]:
+                accurate_bits += 1
+    return accurate_bits, compared_bits
 
-print(bits)
-print(Eve_indexes)
+def calculate_qber(compared_bits, accurate_bits):
+    '''Calculation of the quantum bit error rate'''
+    if compared_bits == 0:
+        return 0
+    return 1 - (accurate_bits / compared_bits)
+        
+def print_bb84_state(bits, alice_basis, eve_indexes, eve_basis, eve_bits, bob_basis, bob_bits, accurate_bits, qber):
+    print("Original Bits  :", bits)
+    print("Alice's Bases  :", alice_basis)
+    print("")
+    print("Eve's Bases    :", eve_basis)
+    print("Eve's Bits     :", eve_bits)
+    print("")
+    print("Bob's Bases    :", bob_basis)
+    print("Bob's Bits     :", bob_bits)
+    print("")
+    print("Eve Intercepts :", eve_indexes)
+    print("Intercepted %  :", len(eve_indexes) / len(bits))
+    print("")
+    print("Accurate bits  :", accurate_bits)
+    print("QBER           :", qber)
 
-percentage_intercepted = len(Eve_indexes)/len(bits)
 
-#change percentage intercepted
-print(percentage_intercepted)
+# ========== SIMULATION ==========
+def simulate_bb84(n_qubits, intercept_rate, verbose=True):
+    bits = generate_bits(n_qubits)
+    alice_basis = generate_bases(n_qubits)
+    eve_indexes = choose_eve_intercepts(n_qubits, intercept_rate)
+    
+    # Eve's measure and resend qubits
+    eve_basis = generate_bases(n_qubits)
+    eve_bits = measure_qubits(bits, alice_basis, eve_basis, eve_indexes)
+
+    # Bob's measure and resend qubits
+    bob_basis = generate_bases(n_qubits)
+    bob_bits = measure_qubits(eve_bits, eve_basis, bob_basis, bits)
+
+    #Basis reconciliation result
+    accurate_bits, compared_bits = basis_reconciliation(alice_basis, bob_basis, bits, bob_bits)
+    qber = calculate_qber(compared_bits, accurate_bits)
+
+    # Print initial setup
+    if verbose:
+        print_bb84_state(bits, alice_basis, eve_indexes, eve_basis, eve_bits, bob_basis, bob_bits, accurate_bits, qber)
+
+    
+    return bits, alice_basis, bob_basis, eve_basis, eve_indexes
+
+# ========== RUN ==========
+if __name__ == "__main__":
+    simulate_bb84(N_QUBITS, INTERCEPT_RATE)
+
 
 
 
